@@ -60,7 +60,7 @@ void copy_environ(char *envp[]) {				// copy environment variables
     while (envp[i] != NULL && i < MAXENV) {			// if it is not null and less that MAXENV
         environcopy[i] = strdup(envp[i]);
         if (environcopy[i] == NULL) {
-            perror("Failed Hahaha");	// Failed memory
+            perror("copy_environ: strdup failed");	// Out of memory
             exit(1);
         }
         i++;							// increment i
