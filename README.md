@@ -1,69 +1,48 @@
-# bsh — Custom Unix Shell
+# bsh: a basic Unix shell in C
 
-A Unix shell interpreter written in **C** that implements core shell functionality from scratch — command parsing, process management, environment control, and command history.
+A small Unix shell written in C for a systems programming course. It reads commands in a loop, runs built-in
+commands itself, and starts other programs by searching the `PATH` and using `fork` / `execv` / `waitpid`.
 
-## Features
+## Built-in commands
 
-| Feature | Details |
+| Command | What it does |
 |---|---|
-| **Command execution** | Searches `PATH` directories and runs executables via `fork` / `execv` |
-| **Command parsing** | Tokenizes input into up to 16 arguments per command |
-| **Directory navigation** | `cd [path]` — defaults to `$HOME`, updates `PWD` environment variable |
-| **Environment variables** | `environ` (list), `setenv VAR VALUE` (set/update), `unsetenv VAR` (remove) |
-| **Command history** | Stores last 500 commands; `history` prints numbered list |
-| **Input limits** | Up to 1024-byte command lines, up to 64 environment variables |
+| `cd [dir]` | Change directory (to `$HOME` if no argument) and update `PWD` |
+| `env` | Print the shell's environment variables |
+| `setenv VAR VALUE` | Add or update a variable |
+| `unsetenv VAR` | Remove a variable |
+| `history` | Print the numbered list of previous commands (up to 500) |
+| `exit` | Quit the shell |
 
-## Built-in Commands
+Any other command is looked up in each `PATH` directory with `access(path, X_OK)`; the first match is run in a
+child process with `fork` + `execv`, and the shell waits for it with `waitpid`.
 
-```
-cd [path]            Change directory (defaults to $HOME)
-environ              List all environment variables
-setenv VAR VALUE     Set or update an environment variable
-unsetenv VAR         Remove an environment variable
-history              Print command history (last 500 commands)
-exit                 Exit the shell
-```
+## Implementation notes (`bsh.c`)
 
-## Implementation Details
+- **Parsing:** each line is split on spaces with `strsep` into up to 16 arguments (lines up to 1,024 bytes).
+- **Environment:** the shell keeps its own copy of the environment (up to 64 variables), so `setenv`,
+  `unsetenv` and `cd` change that copy.
+- **History:** an array of the last 500 commands; when it is full, the oldest entry is freed and the rest shift down.
+- **Debug mode:** `./bsh -d` prints each parsed argument and which code path runs.
+- **Current limitation:** external programs are started with their name only; their arguments are parsed but
+  not yet passed to `execv`, so `ls -la` runs as `ls`.
 
-### Process Management
-Each external command spawns a child process via `fork()`. The child resolves the executable by iterating through `PATH` directories, then calls `execv()`. The parent waits for the child to complete.
-
-```c
-pid_t pid = fork();
-if (pid == 0) {
-    execv(full_path, args);   // child: replace with target program
-} else {
-    waitpid(pid, &status, 0); // parent: wait for child
-}
-```
-
-### PATH Resolution
-The shell tokenizes the `PATH` environment variable on `:` and checks each directory for an executable matching the command name using `access(path, X_OK)`.
-
-### Command History
-A circular buffer of 500 `char*` entries. When the buffer is full, the oldest entry is freed and all entries shift left by one.
-
-### Environment Management
-Environment variables are maintained in a separate `environcopy[]` array (independent of `envp`) so `setenv`/`unsetenv` changes persist across commands within the session.
-
-## Build & Run
+## Build & run
 
 ```bash
 gcc -o bsh bsh.c
-./bsh
+./bsh          # or ./bsh -d for debug output
 ```
 
 ```
-bsh> ls -la
-bsh> cd projects
+bsh> cd /tmp
 bsh> setenv EDITOR vim
+bsh> env
+bsh> ls
 bsh> history
 bsh> exit
 ```
 
-## Technologies
+## Concepts
 
-- **C**
-- POSIX: `fork`, `execv`, `waitpid`, `chdir`, `getcwd`, `access`
-- Manual memory management (`malloc`, `strdup`, `free`)
+Processes (`fork`, `execv`, `waitpid`) · `PATH` resolution · environment variables · string parsing in C · manual memory management
