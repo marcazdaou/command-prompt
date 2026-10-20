@@ -125,7 +125,7 @@ void command_changedirectory(char *path) {					// Function to change directories
         getcwd(cwd, sizeof(cwd));
         command_setenv("PWD", cwd); 				// update PWD environment variable
     } else {
-        perror("CD FAIL HAHA");
+        perror("cd");
     }
 }
 
